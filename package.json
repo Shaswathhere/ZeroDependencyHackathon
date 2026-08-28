@@ -1,0 +1,20 @@
+{
+  "name": "zerodependencyhackathon",
+  "version": "1.0.0",
+  "description": "**Zero Dependency 2026 Hackathon — Track C: Web & Network**",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "node --test dist/**/*.test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^26.4.0",
+    "typescript": "^7.0.2"
+  }
+}
