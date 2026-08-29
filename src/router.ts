@@ -1,19 +1,23 @@
 import * as http from 'node:http';
 import { MiddlewareFn, ErrorMiddlewareFn, composeMiddleware } from './middleware.js';
+import { compilePath, matchPath } from './path-matcher.js';
 
 export type RequestHandler = MiddlewareFn;
 
 export interface Route {
   method: string;
-  path: string;
+  pattern: string;
+  regex: RegExp;
+  keys: string[];
   handlers: (MiddlewareFn | ErrorMiddlewareFn)[];
 }
 
 export class Router {
   private routes: Route[] = [];
 
-  private addRoute(method: string, path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
-    this.routes.push({ method: method.toUpperCase(), path, handlers });
+  private addRoute(method: string, pattern: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    const { regex, keys } = compilePath(pattern);
+    this.routes.push({ method: method.toUpperCase(), pattern, regex, keys, handlers });
   }
 
   public get(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
@@ -41,7 +45,8 @@ export class Router {
   }
 
   /**
-   * Attempts to handle the request by composing matched route handlers.
+   * Attempts to handle the request by matching path params and composing route handlers.
+   * Attaches parsed params to req.params.
    * Returns true if a route was found, false otherwise.
    */
   public handle(
@@ -54,12 +59,27 @@ export class Router {
     const method = (req.method || 'GET').toUpperCase();
 
     for (const route of this.routes) {
-      if ((route.method === method || route.method === 'ALL') && route.path === pathname) {
-        composeMiddleware(route.handlers, req, res, done);
-        return true;
-      }
+      if (route.method !== method && route.method !== 'ALL') continue;
+
+      const match = matchPath(pathname, route.regex, route.keys);
+      if (!match) continue;
+
+      // Attach parsed path params to the request object
+      (req as NodeDepRequest).params = match.params;
+
+      composeMiddleware(route.handlers, req, res, done);
+      return true;
     }
 
-    return false; // Route not found
+    return false; // No matching route found
   }
+}
+
+/**
+ * Extended IncomingMessage with NoDep-specific fields.
+ * We augment the native type rather than wrapping it.
+ */
+export interface NodeDepRequest extends http.IncomingMessage {
+  params: Record<string, string>;
+  query: Record<string, string>;
 }
