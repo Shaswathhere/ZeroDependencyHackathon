@@ -1,46 +1,52 @@
 import * as http from 'node:http';
-import { MiddlewareFn, ErrorMiddlewareFn, composeMiddleware } from './middleware.js';
+import { Buffer } from 'node:buffer';
+import { Handler, composeMiddleware } from './middleware.js';
 import { compilePath, matchPath } from './path-matcher.js';
+import { NodeDepResponse } from './response.js';
 
-export type RequestHandler = MiddlewareFn;
+export type RequestHandler = (
+  req: NodeDepRequest,
+  res: NodeDepResponse,
+  next?: (err?: Error) => void
+) => void | Promise<void>;
 
 export interface Route {
   method: string;
   pattern: string;
   regex: RegExp;
   keys: string[];
-  handlers: (MiddlewareFn | ErrorMiddlewareFn)[];
+  handlers: Handler<NodeDepRequest, NodeDepResponse>[];
 }
 
 export class Router {
   private routes: Route[] = [];
 
-  private addRoute(method: string, pattern: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+  private addRoute(method: string, pattern: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
     const { regex, keys } = compilePath(pattern);
     this.routes.push({ method: method.toUpperCase(), pattern, regex, keys, handlers });
   }
 
-  public get(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+  public get(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
     this.addRoute('GET', path, ...handlers);
   }
 
-  public post(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+  public post(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
     this.addRoute('POST', path, ...handlers);
   }
 
-  public put(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+  public put(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
     this.addRoute('PUT', path, ...handlers);
   }
 
-  public delete(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+  public delete(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
     this.addRoute('DELETE', path, ...handlers);
   }
 
-  public patch(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+  public patch(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
     this.addRoute('PATCH', path, ...handlers);
   }
 
-  public all(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+  public all(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
     this.addRoute('ALL', path, ...handlers);
   }
 
@@ -77,9 +83,13 @@ export class Router {
 
 /**
  * Extended IncomingMessage with NoDep-specific fields.
- * We augment the native type rather than wrapping it.
+ * Augments native IncomingMessage with params, query, and parsed body.
  */
 export interface NodeDepRequest extends http.IncomingMessage {
   params: Record<string, string>;
   query: Record<string, string>;
+  body: any;
+  rawBody?: Buffer;
+  cookies?: Record<string, string>;
+  session?: Record<string, any>;
 }

@@ -1,6 +1,5 @@
 import * as http from 'node:http';
 import { MiddlewareFn, ErrorMiddlewareFn } from './middleware.js';
-import { NodeDepRequest } from './router.js';
 
 /**
  * Built-in 404 handler middleware.
@@ -14,7 +13,7 @@ export const notFoundHandler: MiddlewareFn = (
 ) => {
   if (res.writableEnded) return; // already responded
   res.statusCode = 404;
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify({ error: 'Not Found', status: 404 }));
 };
 
@@ -34,10 +33,10 @@ export const errorHandler: ErrorMiddlewareFn = (
   const status = (err as NodeDepError).status ?? 500;
   const message = err.message || 'Internal Server Error';
 
-  console.error(`[NoDep Error] ${(req as NodeDepRequest).method ?? ''} ${(req as NodeDepRequest).url ?? ''} — ${status}: ${message}`);
+  console.error(`[NoDep Error] ${req.method ?? ''} ${req.url ?? ''} — ${status}: ${message}`);
 
   res.statusCode = status;
-  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify({ error: message, status }));
 };
 

@@ -2,18 +2,29 @@ import * as http from 'node:http';
 
 export type NextFunction = (err?: Error) => void;
 
-export type MiddlewareFn = (
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
+export type MiddlewareFn<
+  Req = http.IncomingMessage,
+  Res = http.ServerResponse
+> = (
+  req: Req,
+  res: Res,
   next: NextFunction
 ) => void | Promise<void>;
 
-export type ErrorMiddlewareFn = (
+export type ErrorMiddlewareFn<
+  Req = http.IncomingMessage,
+  Res = http.ServerResponse
+> = (
   err: Error,
-  req: http.IncomingMessage,
-  res: http.ServerResponse,
+  req: Req,
+  res: Res,
   next: NextFunction
 ) => void | Promise<void>;
+
+export type Handler<Req = any, Res = any> =
+  | MiddlewareFn<Req, Res>
+  | ErrorMiddlewareFn<Req, Res>
+  | ((req: Req, res: Res) => void | Promise<void>);
 
 /**
  * Composes an array of middleware functions into a single executor.
@@ -22,7 +33,7 @@ export type ErrorMiddlewareFn = (
  * Replaces: express middleware chain.
  */
 export function composeMiddleware(
-  stack: (MiddlewareFn | ErrorMiddlewareFn)[],
+  stack: Handler[],
   req: http.IncomingMessage,
   res: http.ServerResponse,
   finalHandler: (err?: Error) => void
@@ -46,7 +57,7 @@ export function composeMiddleware(
           next(err);
         }
       } else {
-        // Normal middleware (3 args)
+        // Normal middleware (3 args or 2 args)
         if (fn.length < 4) {
           Promise.resolve((fn as MiddlewareFn)(req, res, next)).catch(next);
         } else {
