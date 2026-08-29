@@ -4,9 +4,12 @@
   "description": "**Zero Dependency 2026 Hackathon — Track C: Web & Network**",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "test": "node --test dist/**/*.test.js"
+    "build": "node ./node_modules/typescript/bin/tsc",
+    "start": "node dist/demo/app.js",
+    "test": "npm run build && node --test dist/src/path-matcher.test.js dist/src/middleware.test.js dist/src/index.test.js dist/src/integration.test.js",
+    "test:unit": "npm run build && node --test dist/src/path-matcher.test.js dist/src/middleware.test.js dist/src/index.test.js",
+    "test:integration": "npm run build && node --test dist/src/integration.test.js",
+    "demo": "npm run build && node dist/demo/app.js"
   },
   "keywords": [],
   "author": "",
