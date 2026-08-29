@@ -4,49 +4,49 @@ import { Handler, composeMiddleware } from './middleware.js';
 import { compilePath, matchPath } from './path-matcher.js';
 import { NodeDepResponse } from './response.js';
 
-export type RequestHandler = (
+export type RequestHandler<Res extends http.ServerResponse = NodeDepResponse> = (
   req: NodeDepRequest,
-  res: NodeDepResponse,
+  res: Res,
   next?: (err?: Error) => void
 ) => void | Promise<void>;
 
-export interface Route {
+export interface Route<Res extends http.ServerResponse = NodeDepResponse> {
   method: string;
   pattern: string;
   regex: RegExp;
   keys: string[];
-  handlers: Handler<NodeDepRequest, NodeDepResponse>[];
+  handlers: Handler<NodeDepRequest, Res>[];
 }
 
-export class Router {
-  private routes: Route[] = [];
+export class Router<Res extends http.ServerResponse = NodeDepResponse> {
+  private routes: Route<Res>[] = [];
 
-  private addRoute(method: string, pattern: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
+  private addRoute(method: string, pattern: string, ...handlers: Handler<NodeDepRequest, Res>[]) {
     const { regex, keys } = compilePath(pattern);
     this.routes.push({ method: method.toUpperCase(), pattern, regex, keys, handlers });
   }
 
-  public get(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
+  public get(path: string, ...handlers: Handler<NodeDepRequest, Res>[]) {
     this.addRoute('GET', path, ...handlers);
   }
 
-  public post(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
+  public post(path: string, ...handlers: Handler<NodeDepRequest, Res>[]) {
     this.addRoute('POST', path, ...handlers);
   }
 
-  public put(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
+  public put(path: string, ...handlers: Handler<NodeDepRequest, Res>[]) {
     this.addRoute('PUT', path, ...handlers);
   }
 
-  public delete(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
+  public delete(path: string, ...handlers: Handler<NodeDepRequest, Res>[]) {
     this.addRoute('DELETE', path, ...handlers);
   }
 
-  public patch(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
+  public patch(path: string, ...handlers: Handler<NodeDepRequest, Res>[]) {
     this.addRoute('PATCH', path, ...handlers);
   }
 
-  public all(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) {
+  public all(path: string, ...handlers: Handler<NodeDepRequest, Res>[]) {
     this.addRoute('ALL', path, ...handlers);
   }
 

@@ -1,19 +1,22 @@
 import * as http from 'node:http';
 import { Router, RequestHandler, NodeDepRequest } from './router.js';
-import { Handler, composeMiddleware, MiddlewareFn, ErrorMiddlewareFn } from './middleware.js';
-import { notFoundHandler, errorHandler, NodeDepError } from './error-handlers.js';
+import { Handler, composeMiddleware, MiddlewareFn, ErrorMiddlewareFn, NextFunction } from './middleware.js';
+import { notFoundHandler, errorHandler, NodeDepError, createHttpError } from './error-handlers.js';
 import { enhanceResponse, NodeDepResponse } from './response.js';
 import { parseQuery, queryParser } from './query-parser.js';
 import { json, urlencoded, readBody, BodyParserOptions } from './body-parser.js';
+import { enhanceResponseWithCookies, cookieParser, CookieOptions, NodeDepResponseWithCookies } from './cookies.js';
+import { session, SessionOptions } from './sessions.js';
+import { serveStatic } from './static.js';
 
 export class Application {
   private server: http.Server;
-  private router: Router;
+  private router: Router<NodeDepResponseWithCookies>;
   /** Global middleware stack — runs before route handlers */
-  private stack: Handler<NodeDepRequest, NodeDepResponse>[] = [];
+  private stack: Handler<NodeDepRequest, NodeDepResponseWithCookies>[] = [];
 
   constructor() {
-    this.router = new Router();
+    this.router = new Router<NodeDepResponseWithCookies>();
     this.server = http.createServer((req: http.IncomingMessage, res: http.ServerResponse) => {
       this.handleRequest(req, res);
     });
@@ -23,16 +26,16 @@ export class Application {
    * Register global middleware (Express-style app.use()).
    * Replaces: express middleware registration.
    */
-  public use(...fns: Handler<NodeDepRequest, NodeDepResponse>[]) {
+  public use(...fns: Handler<NodeDepRequest, NodeDepResponseWithCookies>[]) {
     this.stack.push(...fns);
   }
 
-  public get(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) { this.router.get(path, ...handlers); }
-  public post(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) { this.router.post(path, ...handlers); }
-  public put(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) { this.router.put(path, ...handlers); }
-  public delete(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) { this.router.delete(path, ...handlers); }
-  public patch(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) { this.router.patch(path, ...handlers); }
-  public all(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponse>[]) { this.router.all(path, ...handlers); }
+  public get(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponseWithCookies>[]) { this.router.get(path, ...handlers); }
+  public post(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponseWithCookies>[]) { this.router.post(path, ...handlers); }
+  public put(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponseWithCookies>[]) { this.router.put(path, ...handlers); }
+  public delete(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponseWithCookies>[]) { this.router.delete(path, ...handlers); }
+  public patch(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponseWithCookies>[]) { this.router.patch(path, ...handlers); }
+  public all(path: string, ...handlers: Handler<NodeDepRequest, NodeDepResponseWithCookies>[]) { this.router.all(path, ...handlers); }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
     // 1. Enhance request with query params and default params
@@ -42,8 +45,8 @@ export class Application {
     }
     parseQuery(customReq);
 
-    // 2. Enhance response with status, json, send, redirect helpers
-    const customRes = enhanceResponse(res);
+    // 2. Enhance response with status, json, send, redirect and cookie helpers
+    const customRes = enhanceResponseWithCookies(enhanceResponse(res));
 
     // 3. Run global middleware stack
     composeMiddleware(this.stack, customReq, customRes, (globalErr) => {
@@ -89,9 +92,14 @@ export { json, urlencoded, readBody } from './body-parser.js';
 export { queryParser, parseQuery } from './query-parser.js';
 export { composeMiddleware } from './middleware.js';
 export { Router } from './router.js';
+export { serveStatic } from './static.js';
+export { cookieParser, enhanceResponseWithCookies } from './cookies.js';
+export { session } from './sessions.js';
 
 export type { NodeDepError } from './error-handlers.js';
 export type { NodeDepRequest, RequestHandler } from './router.js';
 export type { NodeDepResponse } from './response.js';
 export type { Handler, MiddlewareFn, ErrorMiddlewareFn, NextFunction } from './middleware.js';
 export type { BodyParserOptions } from './body-parser.js';
+export type { CookieOptions, NodeDepResponseWithCookies } from './cookies.js';
+export type { SessionOptions } from './sessions.js';
