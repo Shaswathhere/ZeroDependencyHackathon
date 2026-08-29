@@ -1,6 +1,7 @@
 import * as http from 'node:http';
 import { Router, RequestHandler } from './router.js';
 import { MiddlewareFn, ErrorMiddlewareFn, composeMiddleware } from './middleware.js';
+import { notFoundHandler, errorHandler, NodeDepError } from './error-handlers.js';
 
 export class Application {
   private server: http.Server;
@@ -31,28 +32,24 @@ export class Application {
   public all(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) { this.router.all(path, ...handlers); }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
-    // First run all global middleware, then dispatch to router
-    composeMiddleware(this.stack, req, res, (err) => {
-      if (err) {
-        // Unhandled error from global middleware
-        res.statusCode = 500;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end(`Internal Server Error: ${err.message}`);
-        return;
+    // 1. Run global middleware stack
+    composeMiddleware(this.stack, req, res, (globalErr) => {
+      if (globalErr) {
+        // Global middleware threw — send to error handler immediately
+        return errorHandler(globalErr, req, res, () => {});
       }
 
-      const handled = this.router.handle(req, res, (err) => {
-        if (err) {
-          res.statusCode = 500;
-          res.setHeader('Content-Type', 'text/plain');
-          res.end(`Internal Server Error: ${err.message}`);
+      // 2. Try to dispatch to a matching route
+      const handled = this.router.handle(req, res, (routeErr) => {
+        if (routeErr) {
+          // A route handler threw — send to error handler
+          errorHandler(routeErr, req, res, () => {});
         }
       });
 
+      // 3. If no route matched, trigger 404 handler
       if (!handled) {
-        res.statusCode = 404;
-        res.setHeader('Content-Type', 'text/plain');
-        res.end('Not Found');
+        notFoundHandler(req, res, () => {});
       }
     });
   }
@@ -71,3 +68,8 @@ export class Application {
 export function createApp() {
   return new Application();
 }
+
+// Re-export convenience helpers so users only need one import
+export { createHttpError } from './error-handlers.js';
+export type { NodeDepError } from './error-handlers.js';
+export type { RequestHandler };
