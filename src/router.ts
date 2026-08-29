@@ -1,60 +1,65 @@
 import * as http from 'node:http';
+import { MiddlewareFn, ErrorMiddlewareFn, composeMiddleware } from './middleware.js';
 
-export type RequestHandler = (req: http.IncomingMessage, res: http.ServerResponse) => void | Promise<void>;
+export type RequestHandler = MiddlewareFn;
 
 export interface Route {
   method: string;
   path: string;
-  handler: RequestHandler;
+  handlers: (MiddlewareFn | ErrorMiddlewareFn)[];
 }
 
 export class Router {
   private routes: Route[] = [];
 
-  private addRoute(method: string, path: string, handler: RequestHandler) {
-    this.routes.push({ method: method.toUpperCase(), path, handler });
+  private addRoute(method: string, path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    this.routes.push({ method: method.toUpperCase(), path, handlers });
   }
 
-  public get(path: string, handler: RequestHandler) {
-    this.addRoute('GET', path, handler);
+  public get(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    this.addRoute('GET', path, ...handlers);
   }
 
-  public post(path: string, handler: RequestHandler) {
-    this.addRoute('POST', path, handler);
+  public post(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    this.addRoute('POST', path, ...handlers);
   }
 
-  public put(path: string, handler: RequestHandler) {
-    this.addRoute('PUT', path, handler);
+  public put(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    this.addRoute('PUT', path, ...handlers);
   }
 
-  public delete(path: string, handler: RequestHandler) {
-    this.addRoute('DELETE', path, handler);
+  public delete(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    this.addRoute('DELETE', path, ...handlers);
   }
 
-  public patch(path: string, handler: RequestHandler) {
-    this.addRoute('PATCH', path, handler);
+  public patch(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    this.addRoute('PATCH', path, ...handlers);
   }
 
-  public all(path: string, handler: RequestHandler) {
-    this.addRoute('ALL', path, handler);
+  public all(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    this.addRoute('ALL', path, ...handlers);
   }
 
   /**
-   * Attempts to handle the request. Returns true if a route was found, false otherwise.
+   * Attempts to handle the request by composing matched route handlers.
+   * Returns true if a route was found, false otherwise.
    */
-  public handle(req: http.IncomingMessage, res: http.ServerResponse): boolean {
-    // We use a dummy base URL here just to cleanly extract the pathname.
+  public handle(
+    req: http.IncomingMessage,
+    res: http.ServerResponse,
+    done: (err?: Error) => void
+  ): boolean {
     const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
     const pathname = url.pathname;
     const method = (req.method || 'GET').toUpperCase();
 
     for (const route of this.routes) {
       if ((route.method === method || route.method === 'ALL') && route.path === pathname) {
-        route.handler(req, res);
+        composeMiddleware(route.handlers, req, res, done);
         return true;
       }
     }
-    
+
     return false; // Route not found
   }
 }

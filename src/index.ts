@@ -1,9 +1,12 @@
 import * as http from 'node:http';
 import { Router, RequestHandler } from './router.js';
+import { MiddlewareFn, ErrorMiddlewareFn, composeMiddleware } from './middleware.js';
 
 export class Application {
   private server: http.Server;
   private router: Router;
+  /** Global middleware stack — runs before route handlers */
+  private stack: (MiddlewareFn | ErrorMiddlewareFn)[] = [];
 
   constructor() {
     this.router = new Router();
@@ -12,21 +15,46 @@ export class Application {
     });
   }
 
-  public get(path: string, handler: RequestHandler) { this.router.get(path, handler); }
-  public post(path: string, handler: RequestHandler) { this.router.post(path, handler); }
-  public put(path: string, handler: RequestHandler) { this.router.put(path, handler); }
-  public delete(path: string, handler: RequestHandler) { this.router.delete(path, handler); }
-  public patch(path: string, handler: RequestHandler) { this.router.patch(path, handler); }
-  public all(path: string, handler: RequestHandler) { this.router.all(path, handler); }
+  /**
+   * Register global middleware (Express-style app.use()).
+   * Replaces: express middleware registration.
+   */
+  public use(...fns: (MiddlewareFn | ErrorMiddlewareFn)[]) {
+    this.stack.push(...fns);
+  }
+
+  public get(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) { this.router.get(path, ...handlers); }
+  public post(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) { this.router.post(path, ...handlers); }
+  public put(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) { this.router.put(path, ...handlers); }
+  public delete(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) { this.router.delete(path, ...handlers); }
+  public patch(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) { this.router.patch(path, ...handlers); }
+  public all(path: string, ...handlers: (MiddlewareFn | ErrorMiddlewareFn)[]) { this.router.all(path, ...handlers); }
 
   private handleRequest(req: http.IncomingMessage, res: http.ServerResponse) {
-    const handled = this.router.handle(req, res);
-    if (!handled) {
-      // Basic fallback for unhandled requests
-      res.statusCode = 404;
-      res.setHeader('Content-Type', 'text/plain');
-      res.end('Not Found');
-    }
+    // First run all global middleware, then dispatch to router
+    composeMiddleware(this.stack, req, res, (err) => {
+      if (err) {
+        // Unhandled error from global middleware
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end(`Internal Server Error: ${err.message}`);
+        return;
+      }
+
+      const handled = this.router.handle(req, res, (err) => {
+        if (err) {
+          res.statusCode = 500;
+          res.setHeader('Content-Type', 'text/plain');
+          res.end(`Internal Server Error: ${err.message}`);
+        }
+      });
+
+      if (!handled) {
+        res.statusCode = 404;
+        res.setHeader('Content-Type', 'text/plain');
+        res.end('Not Found');
+      }
+    });
   }
 
   /**
