@@ -2,7 +2,7 @@ import { createApp, json, urlencoded, serveStatic, NodeDepRequest, NodeDepRespon
 import { getTodos, addTodo, toggleTodo, deleteTodo } from './store.js';
 
 const app = createApp();
-const PORT = 3000;
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 // Middleware
 app.use(json());
