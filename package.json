@@ -4,7 +4,7 @@
   "description": "**Zero Dependency 2026 Hackathon — Track C: Web & Network**",
   "main": "dist/index.js",
   "scripts": {
-    "build": "node -e \"const cp=require('child_process'); try{cp.execSync('npx -p typescript tsc',{stdio:'inherit'})}catch(e){cp.execSync('node ./node_modules/typescript/bin/tsc',{stdio:'inherit'})}\"",
+    "build": "node ./node_modules/typescript/bin/tsc",
     "start": "node dist/demo/app.js",
     "test": "npm run build && node --test dist/src/path-matcher.test.js dist/src/middleware.test.js dist/src/index.test.js dist/src/integration.test.js",
     "test:unit": "npm run build && node --test dist/src/path-matcher.test.js dist/src/middleware.test.js dist/src/index.test.js",
